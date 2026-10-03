@@ -1,0 +1,53 @@
+name: Build Rider Zone APK
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Find and extract RiderZone ZIP
+        run: |
+          ZIP_FILE=$(find . -maxdepth 1 -type f -name "*.zip" | head -n 1)
+          echo "Using $ZIP_FILE"
+          unzip -q "$ZIP_FILE" -d extracted
+          echo "Extracted:"
+          find extracted -maxdepth 2 -type f | head -50
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android SDK
+        run: |
+          sdkmanager "platforms;android-35" "build-tools;35.0.0"
+
+      - name: Install Gradle
+        run: |
+          curl -L -o gradle.zip https://services.gradle.org/distributions/gradle-8.11.1-bin.zip
+          unzip -q gradle.zip
+          echo "$PWD/gradle-8.11.1/bin" >> "$GITHUB_PATH"
+
+      - name: Build APK
+        run: |
+          cd extracted/RiderZone
+          gradle --no-daemon :app:assembleDebug
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: RiderZone-APK
+          path: extracted/RiderZone/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
